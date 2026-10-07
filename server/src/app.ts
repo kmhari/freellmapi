@@ -40,6 +40,7 @@ import { createProxyRateLimiter, createAdminRateLimiter } from './middleware/rat
 const EXPORT_RATE_LIMIT_RPM = 10;
 import { errorHandler } from './middleware/errorHandler.js';
 import { clientContextMiddleware } from './lib/client-context.js';
+import { langfuseTraceMiddleware } from './middleware/langfuse-trace.js';
 import type { Config } from './lib/config.js';
 import { loadConfig } from './lib/config.js';
 
@@ -295,6 +296,9 @@ export function createApp(config?: Config) {
   // it throttles unauthenticated brute-force / flood attempts before any
   // routing work. Tune via PROXY_RATE_LIMIT_RPM; 0 disables it.
   app.use('/v1', createProxyRateLimiter(cfg.proxyRateLimitRpm));
+  // Langfuse tracing (fork-local): captures prompt/completion on the chat
+  // surfaces when LANGFUSE_* env vars are set. No-op otherwise.
+  app.use(['/v1/chat/completions', '/v1/messages'], langfuseTraceMiddleware);
   // Anthropic-compatible Messages API (`POST /v1/messages`, `/count_tokens`) for
   // Claude Code and anything else speaking the Anthropic SDK. Mounted BEFORE the
   // OpenAI router so it can content-negotiate `GET /v1/models` (Anthropic shape
