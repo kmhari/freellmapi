@@ -60,6 +60,12 @@ async function flush(cfg: LangfuseConfig): Promise<void> {
     });
     if (!res.ok && res.status !== 207) {
       console.error(`[langfuse] ingestion rejected: HTTP ${res.status} ${(await res.text()).slice(0, 200)}`);
+      return;
+    }
+    // 207 means partial success — surface per-event rejections.
+    const body: any = await res.json().catch(() => null);
+    if (body?.errors?.length) {
+      console.error(`[langfuse] ${body.errors.length} event(s) rejected: ${JSON.stringify(body.errors[0]).slice(0, 300)}`);
     }
   } catch (err: any) {
     console.error(`[langfuse] ingestion failed: ${err?.message ?? err}`);
@@ -219,6 +225,7 @@ export function langfuseTraceMiddleware(req: Request, res: Response, next: NextF
             type: 'generation-create',
             timestamp: now,
             body: {
+              id: randomUUID(),
               traceId,
               name: 'chat',
               startTime: startedAt.toISOString(),
